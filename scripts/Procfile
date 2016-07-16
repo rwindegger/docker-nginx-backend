@@ -1,2 +1,2 @@
-nginx: nginx -g 'daemon off;'
+nginx: nginx
 dockergen: docker-gen -watch -notify "nginx -s reload" /opt/scripts/nginx.tmpl /etc/nginx/conf.d/default.conf
