@@ -1,0 +1,65 @@
+{{ define "upstream" }}
+	{{ if .Address }}
+		{{/* If we got the containers from swarm and this container's port is published to host, use host IP:PORT */}}
+		{{ if and .Container.Node.ID .Address.HostPort }}
+			# {{ .Container.Node.Name }}/{{ .Container.Name }}
+			server {{ .Container.Node.Address.IP }}:{{ .Address.HostPort }};
+		{{/* If there is no swarm node or the port is not published on host, use container's IP:PORT */}}
+		{{ else if .Network }}
+			# {{ .Container.Name }}
+			server {{ .Network.IP }}:{{ .Address.Port }};
+		{{ end }}
+	{{ else if .Network }}
+		# {{ .Container.Name }}
+		server {{ .Network.IP }} down;
+	{{ end }}
+{{ end }}
+
+{{ range $host, $containers := groupByMulti $ "Env.FPM_HOST" "," }}
+upstream php {
+{{ range $container := $containers }}
+	{{ $addrLen := len $container.Addresses }}
+
+	{{ range $knownNetwork := $CurrentContainer.Networks }}
+		{{ range $containerNetwork := $container.Networks }}
+			{{ if eq $knownNetwork.Name $containerNetwork.Name }}
+				## Can be connect with "{{ $containerNetwork.Name }}" network
+
+				{{/* If only 1 port exposed, use that */}}
+				{{ if eq $addrLen 1 }}
+					{{ $address := index $container.Addresses 0 }}
+					{{ template "upstream" (dict "Container" $container "Address" $address "Network" $containerNetwork) }}
+				{{/* If more than one port exposed, use the one matching VIRTUAL_PORT env var, falling back to standard web port 9000 */}}
+				{{ else }}
+					{{ $port := coalesce $container.Env.VIRTUAL_PORT "9000" }}
+					{{ $address := where $container.Addresses "Port" $port | first }}
+					{{ template "upstream" (dict "Container" $container "Address" $address "Network" $containerNetwork) }}
+				{{ end }}
+			{{ end }}
+		{{ end }}
+	{{ end }}
+{{ end }}
+}
+{{ end }}
+
+server {
+	listen 80 default_server;
+	listen [::]:80 default_server ipv6only=on;
+
+	root /var/www/html
+	index index.php
+
+	error_page 500 502 503 504 /50x.html;
+	location = /50x.html {
+		root /usr/share/nginx/html;
+	}
+
+	location ~ \.php$ {
+		try_files $uri =404;
+		include fastcgi_params;
+		fastcgi_split_path_info ^(.+\.php)(/.+)$;
+		fastcgi_pass php;
+		fastcgi_index index.php;
+		fastcgi_param SCRIPT_FILENAME $document_root/$fastcgi_script_name;
+	}
+}
