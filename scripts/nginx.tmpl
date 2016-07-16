@@ -84,6 +84,10 @@ rewrite ^/wp-content/cache/minify/(.+\.(css|js))$ /wp-content/plugins/w3-total-c
 	location ~ \.php$ {
 		try_files $uri =404;
 		include fastcgi_params;
+		fastcgi_send_timeout                    180;
+		fastcgi_read_timeout                    180;
+		fastcgi_buffer_size                     128k;
+		fastcgi_buffers                         256 4k;
 		fastcgi_split_path_info ^(.+\.php)(/.+)$;
 		fastcgi_pass php;
 		fastcgi_index index.php;
