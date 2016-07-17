@@ -89,9 +89,8 @@ rewrite ^/wp-content/cache/minify/(.+\.(css|js))$ /wp-content/plugins/w3-total-c
 		fastcgi_read_timeout                    180;
 		fastcgi_buffer_size                     128k;
 		fastcgi_buffers                         256 4k;
-		fastcgi_pass_request_body off;
-		client_body_in_file_only clean;
-		fastcgi_param  REQUEST_BODY_FILE  $request_body_file;
+		fastcgi_max_temp_size 			0;
+		client_body_buffer_size			100M;
 		fastcgi_split_path_info ^(.+\.php)(/.+)$;
 		fastcgi_pass php;
 		fastcgi_index index.php;
